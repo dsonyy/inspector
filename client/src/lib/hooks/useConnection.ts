@@ -349,7 +349,7 @@ export function useConnection({
         try {
           resourceMetadata =
             await discoverOAuthProtectedResourceMetadataThroughProxy(
-              new URL("/", sseUrl),
+              sseUrl,
               config,
             );
         } catch {

@@ -121,8 +121,10 @@ export async function fetchJsonThroughProxy<T = unknown>(
 /**
  * Discovers OAuth authorization server metadata through the proxy.
  * This fetches the /.well-known/oauth-authorization-server endpoint.
+ * Tries path-specific endpoint first (e.g., /.well-known/oauth-authorization-server/server1),
+ * then falls back to root-level endpoint (/.well-known/oauth-authorization-server).
  *
- * @param serverUrl - The base URL of the OAuth server
+ * @param serverUrl - The base URL of the OAuth server (may include path)
  * @param config - The Inspector configuration containing proxy settings
  * @returns Promise resolving to OAuth metadata or null if not found
  */
@@ -132,19 +134,54 @@ export async function discoverAuthorizationServerMetadataThroughProxy(
 ): Promise<OAuthMetadata | null> {
   const baseUrl =
     typeof serverUrl === "string" ? new URL(serverUrl) : serverUrl;
-  const wellKnownUrl = new URL(
+
+  // Extract path from the server URL (e.g., "/server1" from "https://example.com/server1")
+  const serverPath = baseUrl.pathname;
+
+  // Try path-specific endpoint first (RFC9728 compliant)
+  // e.g., https://example.com/.well-known/oauth-authorization-server/server1
+  if (serverPath && serverPath !== "/") {
+    const pathSpecificUrl = new URL(
+      `/.well-known/oauth-authorization-server${serverPath}`,
+      baseUrl.origin,
+    );
+
+    try {
+      const result = await fetchJsonThroughProxy<OAuthMetadata>(
+        pathSpecificUrl.toString(),
+        config,
+      );
+      console.debug(
+        `OAuth authorization server metadata discovered at path-specific endpoint: ${pathSpecificUrl.toString()}`,
+      );
+      return result;
+    } catch (error) {
+      console.debug(
+        `Path-specific discovery failed for ${pathSpecificUrl.toString()}, trying root endpoint:`,
+        error,
+      );
+    }
+  }
+
+  // Fallback to root-level endpoint
+  // e.g., https://example.com/.well-known/oauth-authorization-server
+  const rootWellKnownUrl = new URL(
     "/.well-known/oauth-authorization-server",
-    baseUrl,
+    baseUrl.origin,
   );
 
   try {
-    return await fetchJsonThroughProxy<OAuthMetadata>(
-      wellKnownUrl.toString(),
+    const result = await fetchJsonThroughProxy<OAuthMetadata>(
+      rootWellKnownUrl.toString(),
       config,
     );
+    console.debug(
+      `OAuth authorization server metadata discovered at root endpoint: ${rootWellKnownUrl.toString()}`,
+    );
+    return result;
   } catch (error) {
     console.debug(
-      "OAuth authorization server metadata discovery failed:",
+      "OAuth authorization server metadata discovery failed at both endpoints:",
       error,
     );
     return null;
@@ -154,8 +191,10 @@ export async function discoverAuthorizationServerMetadataThroughProxy(
 /**
  * Discovers OAuth protected resource metadata through the proxy.
  * This fetches the /.well-known/oauth-protected-resource endpoint.
+ * Tries path-specific endpoint first (e.g., /.well-known/oauth-protected-resource/server1),
+ * then falls back to root-level endpoint (/.well-known/oauth-protected-resource).
  *
- * @param serverUrl - The base URL of the protected resource
+ * @param serverUrl - The base URL of the protected resource (may include path)
  * @param config - The Inspector configuration containing proxy settings
  * @returns Promise resolving to protected resource metadata or null if not found
  */
@@ -165,18 +204,57 @@ export async function discoverOAuthProtectedResourceMetadataThroughProxy(
 ): Promise<OAuthProtectedResourceMetadata | null> {
   const baseUrl =
     typeof serverUrl === "string" ? new URL(serverUrl) : serverUrl;
-  const wellKnownUrl = new URL(
+
+  // Extract path from the server URL (e.g., "/server1" from "https://example.com/server1")
+  const serverPath = baseUrl.pathname;
+
+  // Try path-specific endpoint first (RFC9728 compliant)
+  // e.g., https://example.com/.well-known/oauth-protected-resource/server1
+  if (serverPath && serverPath !== "/") {
+    const pathSpecificUrl = new URL(
+      `/.well-known/oauth-protected-resource${serverPath}`,
+      baseUrl.origin,
+    );
+
+    try {
+      const result =
+        await fetchJsonThroughProxy<OAuthProtectedResourceMetadata>(
+          pathSpecificUrl.toString(),
+          config,
+        );
+      console.debug(
+        `OAuth protected resource metadata discovered at path-specific endpoint: ${pathSpecificUrl.toString()}`,
+      );
+      return result;
+    } catch (error) {
+      console.debug(
+        `Path-specific discovery failed for ${pathSpecificUrl.toString()}, trying root endpoint:`,
+        error,
+      );
+    }
+  }
+
+  // Fallback to root-level endpoint
+  // e.g., https://example.com/.well-known/oauth-protected-resource
+  const rootWellKnownUrl = new URL(
     "/.well-known/oauth-protected-resource",
-    baseUrl,
+    baseUrl.origin,
   );
 
   try {
-    return await fetchJsonThroughProxy<OAuthProtectedResourceMetadata>(
-      wellKnownUrl.toString(),
+    const result = await fetchJsonThroughProxy<OAuthProtectedResourceMetadata>(
+      rootWellKnownUrl.toString(),
       config,
     );
+    console.debug(
+      `OAuth protected resource metadata discovered at root endpoint: ${rootWellKnownUrl.toString()}`,
+    );
+    return result;
   } catch (error) {
-    console.debug("OAuth protected resource metadata discovery failed:", error);
+    console.debug(
+      "OAuth protected resource metadata discovery failed at both endpoints:",
+      error,
+    );
     return null;
   }
 }
